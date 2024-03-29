@@ -331,6 +331,29 @@ fn io_err_from_sftp(sftp: sys::sftp_session, reason: &str) -> std::io::Error {
     std::io::Error::new(kind, format!("{}: sftp error code {}", reason, res))
 }
 
+impl From<SftpError> for std::io::Error {
+    fn from(sftp_error: SftpError) -> std::io::Error {
+        let kind = match sftp_error.0 {
+            sys::SSH_FX_OK => std::io::ErrorKind::Other,
+            sys::SSH_FX_EOF => std::io::ErrorKind::UnexpectedEof,
+            sys::SSH_FX_NO_SUCH_FILE => std::io::ErrorKind::NotFound,
+            sys::SSH_FX_PERMISSION_DENIED => std::io::ErrorKind::PermissionDenied,
+            sys::SSH_FX_FAILURE => std::io::ErrorKind::Other,
+            sys::SSH_FX_BAD_MESSAGE => std::io::ErrorKind::Other,
+            sys::SSH_FX_NO_CONNECTION => std::io::ErrorKind::NotConnected,
+            sys::SSH_FX_CONNECTION_LOST => std::io::ErrorKind::ConnectionReset,
+            sys::SSH_FX_OP_UNSUPPORTED => std::io::ErrorKind::Unsupported,
+            sys::SSH_FX_INVALID_HANDLE => std::io::ErrorKind::Other,
+            sys::SSH_FX_NO_SUCH_PATH => std::io::ErrorKind::NotFound,
+            sys::SSH_FX_FILE_ALREADY_EXISTS => std::io::ErrorKind::AlreadyExists,
+            sys::SSH_FX_WRITE_PROTECT => std::io::ErrorKind::Other,
+            sys::SSH_FX_NO_MEDIA => std::io::ErrorKind::Other,
+            _ => std::io::ErrorKind::Other,
+        };
+        std::io::Error::new(kind, format!("sftp error code {}", sftp_error.0))
+    }
+}
+
 impl std::io::Read for SftpFile {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let (_sess, file) = self.lock_session();
