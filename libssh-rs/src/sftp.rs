@@ -174,6 +174,18 @@ impl Sftp {
         }
     }
 
+    /// Retrieve filesystem metadata
+    pub fn vfs_metadata(&self, filename: &str) -> SshResult<VfsMetadata> {
+        let filename = CString::new(filename)?;
+        let (_sess, sftp) = self.lock_session();
+        let attr = unsafe { sys::sftp_statvfs(sftp, filename.as_ptr()) };
+        if attr.is_null() {
+            Err(Error::Sftp(SftpError::from_session(sftp)))
+        } else {
+            Ok(VfsMetadata { attr })
+        }
+    }
+
     /// Rename a file from `filename` to `new_name`
     pub fn rename(&self, filename: &str, new_name: &str) -> SshResult<()> {
         let filename = CString::new(filename)?;
@@ -629,6 +641,66 @@ impl Metadata {
             return None;
         };
         SystemTime::UNIX_EPOCH.checked_add(duration)
+    }
+}
+
+pub struct VfsMetadata {
+    attr: sys::sftp_statvfs_t,
+}
+
+impl Drop for VfsMetadata {
+    fn drop(&mut self) {
+        unsafe { sys::sftp_statvfs_free(self.attr) }
+    }
+}
+
+impl VfsMetadata {
+    fn attr(&self) -> &sys::sftp_statvfs_struct {
+        unsafe { &*self.attr }
+    }
+
+    pub fn blocksize(&self) -> u64 {
+        self.attr().f_bsize
+    }
+
+    pub fn fundamental_blocksize(&self) -> u64 {
+        self.attr().f_frsize
+    }
+
+    pub fn num_blocks(&self) -> u64 {
+        self.attr().f_blocks
+    }
+
+    pub fn free_blocks(&self) -> u64 {
+        self.attr().f_bfree
+    }
+
+    pub fn free_blocks_non_root(&self) -> u64 {
+        self.attr().f_bavail
+    }
+
+    pub fn total_inodes(&self) -> u64 {
+        self.attr().f_files
+    }
+
+    pub fn free_inodes(&self) -> u64 {
+        self.attr().f_ffree
+    }
+
+    pub fn free_inodes_non_root(&self) -> u64 {
+        self.attr().f_favail
+    }
+
+    pub fn filesystem_id(&self) -> u64 {
+        self.attr().f_fsid
+    }
+
+    pub fn filesystem_flags(&self) -> u64 {
+        self.attr().f_flag
+    }
+
+    pub fn max_filename_length(&self) -> u64 {
+        self.attr().f_namemax
     }
 }
 
