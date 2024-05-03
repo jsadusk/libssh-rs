@@ -591,7 +591,12 @@ impl Metadata {
     /// The last-accessed time
     pub fn accessed(&self) -> Option<SystemTime> {
         let duration = if self.attr().flags & sys::SSH_FILEXFER_ATTR_ACCESSTIME != 0 {
-            Duration::from_secs(self.attr().atime64)
+            let atime = if self.attr().atime64 != 0 {
+                self.attr().atime64
+            } else {
+                self.attr().atime as u64
+            };
+            Duration::from_secs(atime)
                 + Duration::from_nanos(
                     if self.attr().flags & sys::SSH_FILEXFER_ATTR_SUBSECOND_TIMES != 0 {
                         self.attr().atime_nseconds.into()
